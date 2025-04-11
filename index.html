@@ -1,0 +1,59 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>Simple VR Gallery</title>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <!-- Verified A-Frame and A-Frame Extras scripts -->
+  <script src="https://aframe.io/releases/1.5.0/aframe.min.js"></script>
+  <script src="https://unpkg.com/aframe-extras@7.5.0/dist/aframe-extras.min.js"></script>
+  <style>
+    body {
+      margin: 0;
+      font-family: Arial, sans-serif;
+    }
+  </style>
+</head>
+<body>
+  <a-scene>
+    <!-- Camera rig for VR navigation -->
+    <a-entity id="rig" movement-controls="speed: 0.2">
+      <a-entity camera position="0 1.6 0" look-controls></a-entity>
+      <!-- Controllers for Quest 3 -->
+      <a-entity id="left-hand" hand-controls="hand: left"></a-entity>
+      <a-entity id="right-hand" hand-controls="hand: right" teleport-controls="cameraRig: #rig; landingNormal: 0 1 0"></a-entity>
+    </a-entity>
+
+    <!-- Ground plane for teleportation -->
+    <a-plane position="0 0 0" rotation="-90 0 0" width="20" height="20" color="#7BC8A4"></a-plane>
+
+    <!-- Sky -->
+    <a-sky color="#87CEEB"></a-sky>
+
+    <!-- 3D Objects with gaze interaction -->
+    <a-box position="-2 1 -3" scale="0.5 0.5 0.5" color="red" animation="property: rotation; to: 0 360 0; loop: true; dur: 5000"
+           gaze-interaction></a-box>
+    <a-sphere position="0 1 -3" radius="0.5" color="blue" animation="property: rotation; to: 0 360 0; loop: true; dur: 5000"
+              gaze-interaction></a-sphere>
+    <a-torus position="2 1 -3" radius="0.3" radius-tubular="0.1" color="yellow" animation="property: rotation; to: 0 360 0; loop: true; dur: 5000"
+             gaze-interaction></a-torus>
+
+    <!-- Simple text for context -->
+    <a-text value="VR Gallery Demo" align="center" position="0 2.5 -3" color="black" scale="1 1 1"></a-text>
+  </a-scene>
+
+  <!-- Custom component for gaze interaction -->
+  <script>
+    AFRAME.registerComponent('gaze-interaction', {
+      init: function () {
+        this.el.addEventListener('mouseenter', () => {
+          this.el.setAttribute('scale', '0.6 0.6 0.6');
+        });
+        this.el.addEventListener('mouseleave', () => {
+          this.el.setAttribute('scale', '0.5 0.5 0.5');
+        });
+      }
+    });
+  </script>
+</body>
+</html>
