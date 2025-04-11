@@ -24,6 +24,18 @@
       cursor: pointer;
       z-index: 1000;
     }
+    #rawArButton {
+      position: fixed;
+      bottom: 60px;
+      left: 20px;
+      padding: 10px 20px;
+      background-color: #ff4500;
+      color: white;
+      border: none;
+      border-radius: 5px;
+      cursor: pointer;
+      z-index: 1000;
+    }
     #debugLog {
       position: fixed;
       top: 20px;
@@ -62,8 +74,9 @@
     <a-text value="MR Gallery Demo" align="center" position="0 2 -2" color="black" scale="1 1 1"></a-text>
   </a-scene>
 
-  <!-- Button to manually start AR session -->
-  <button id="arButton">Enter AR Mode</button>
+  <!-- Buttons to start AR session -->
+  <button id="arButton">Enter AR Mode (A-Frame)</button>
+  <button id="rawArButton">Enter AR Mode (Raw WebXR)</button>
 
   <!-- Debug log display -->
   <div id="debugLog"></div>
@@ -94,13 +107,17 @@
     // Manual AR session handling
     document.addEventListener('DOMContentLoaded', () => {
       const arButton = document.getElementById('arButton');
-      const scene = document.getElementById('scene');
+      const rawArButton = document.getElementById('rawArButton');
+      const sceneEl = document.getElementById('scene');
+      const scene = sceneEl.sceneEl; // A-Frame scene object
 
       log('Checking WebXR support...');
       if (!navigator.xr) {
         log('WebXR not supported in this browser.');
         arButton.textContent = 'WebXR Not Supported';
         arButton.disabled = true;
+        rawArButton.textContent = 'WebXR Not Supported';
+        rawArButton.disabled = true;
         return;
       }
 
@@ -109,39 +126,89 @@
         if (supported) {
           log('immersive-ar is supported.');
           arButton.style.display = 'block';
+          rawArButton.style.display = 'block';
+
+          // A-Frame AR session
           arButton.addEventListener('click', () => {
-            log('Requesting immersive-ar session...');
+            log('Requesting immersive-ar session (A-Frame)...');
             navigator.xr.requestSession('immersive-ar').then((session) => {
-              log('immersive-ar session started successfully.');
-              scene.setAttribute('xr-session', session);
-              arButton.style.display = 'none'; // Hide button after entering AR
+              log('immersive-ar session started successfully (A-Frame).');
+              scene.enterAR(session);
+              setTimeout(() => {
+                log('Passthrough should be active now (A-Frame).');
+                arButton.style.display = 'none';
+                rawArButton.style.display = 'none';
+              }, 2000);
             }).catch((err) => {
-              log('Failed to start AR session: ' + err.message);
-              alert('Failed to start AR mode. Falling back to VR.');
+              log('Failed to start AR session (A-Frame): ' + err.message);
+              alert('Failed to start AR mode (A-Frame). Falling back to VR.');
+              startVRSession();
+            });
+          });
+
+          // Raw WebXR AR session
+          rawArButton.addEventListener('click', () => {
+            log('Requesting immersive-ar session (Raw WebXR)...');
+            navigator.xr.requestSession('immersive-ar').then(async (session) => {
+              log('immersive-ar session started successfully (Raw WebXR).');
+              const canvas = sceneEl.querySelector('canvas');
+              const gl = canvas.getContext('webgl', { xrCompatible: true });
+
+              // Bind the WebXR session to the WebGL context
+              session.updateRenderState({ baseLayer: new XRWebGLLayer(session, gl) });
+
+              // Start the session rendering loop
+              let animationFrameId;
+              const renderLoop = () => {
+                session.requestAnimationFrame((time, frame) => {
+                  const pose = frame.getViewerPose(frame.getSession().renderState.baseSpace);
+                  if (pose) {
+                    gl.bindFramebuffer(gl.FRAMEBUFFER, session.renderState.baseLayer.framebuffer);
+                    gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
+                    // A-Frame will handle rendering the scene
+                    scene.renderer.render(scene.object3D, scene.camera);
+                  }
+                  animationFrameId = session.requestAnimationFrame(renderLoop);
+                });
+              };
+              renderLoop();
+
+              // Hide buttons
+              setTimeout(() => {
+                log('Passthrough should be active now (Raw WebXR).');
+                arButton.style.display = 'none';
+                rawArButton.style.display = 'none';
+              }, 2000);
+            }).catch((err) => {
+              log('Failed to start AR session (Raw WebXR): ' + err.message);
+              alert('Failed to start AR mode (Raw WebXR). Falling back to VR.');
               startVRSession();
             });
           });
         } else {
           log('immersive-ar not supported, falling back to VR.');
           arButton.textContent = 'Enter VR Mode';
+          rawArButton.style.display = 'none';
           arButton.addEventListener('click', startVRSession);
         }
       }).catch((err) => {
         log('Error checking immersive-ar support: ' + err.message);
         arButton.textContent = 'WebXR Error';
         arButton.disabled = true;
+        rawArButton.textContent = 'WebXR Error';
+        rawArButton.disabled = true;
       });
 
       function startVRSession() {
         log('Requesting immersive-vr session...');
         navigator.xr.requestSession('immersive-vr').then((session) => {
           log('immersive-vr session started successfully.');
-          scene.setAttribute('xr-session', session);
-          // Add a sky for VR mode since passthrough won't work
+          scene.enterVR(session);
           const sky = document.createElement('a-sky');
           sky.setAttribute('color', '#87CEEB');
-          scene.appendChild(sky);
+          sceneEl.appendChild(sky);
           arButton.style.display = 'none';
+          rawArButton.style.display = 'none';
         }).catch((err) => {
           log('Failed to start VR session: ' + err.message);
           alert('Failed to start VR mode.');
