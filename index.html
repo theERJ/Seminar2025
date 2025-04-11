@@ -47,10 +47,12 @@
     AFRAME.registerComponent('gaze-interaction', {
       init: function () {
         this.el.addEventListener('mouseenter', () => {
-          this.el.setAttribute('scale', '0.6 0.6 0.6');
+          const gazeColor = this.el.getAttribute('data-gaze-color');
+          this.el.setAttribute('color', gazeColor);
         });
         this.el.addEventListener('mouseleave', () => {
-          this.el.setAttribute('scale', '0.5 0.5 0.5');
+          const originalColor = this.el.getAttribute('data-original-color');
+          this.el.setAttribute('color', originalColor);
         });
       }
     });
