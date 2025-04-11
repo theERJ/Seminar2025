@@ -1,0 +1,55 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>Mixed Reality Gallery</title>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <!-- Verified A-Frame and A-Frame Extras scripts -->
+  <script src="https://aframe.io/releases/1.5.0/aframe.min.js"></script>
+  <script src="https://unpkg.com/aframe-extras@7.5.0/dist/aframe-extras.min.js"></script>
+  <style>
+    body {
+      margin: 0;
+      font-family: Arial, sans-serif;
+    }
+  </style>
+</head>
+<body>
+  <a-scene background="color: transparent">
+    <!-- Camera rig for VR navigation -->
+    <a-entity id="rig" movement-controls="speed: 0.2">
+      <a-entity camera position="0 1.6 0" look-controls></a-entity>
+      <!-- Controllers for Quest 3 -->
+      <a-entity id="left-hand" hand-controls="hand: left"></a-entity>
+      <a-entity id="right-hand" hand-controls="hand: right" teleport-controls="cameraRig: #rig; landingNormal: 0 1 0"></a-entity>
+    </a-entity>
+
+    <!-- 3D Objects with gaze interaction -->
+    <a-box position="-2 1 -3" scale="0.5 0.5 0.5" color="red" animation="property: rotation; to: 0 360 0; loop: true; dur: 5000"
+           gaze-interaction data-original-color="red" data-gaze-color="green"></a-box>
+    <a-sphere position="0 1 -3" radius="0.5" color="blue" animation="property: rotation; to: 0 360 0; loop: true; dur: 5000"
+              gaze-interaction data-original-color="blue" data-gaze-color="purple"></a-sphere>
+    <a-torus position="2 1 -3" radius="0.3" radius-tubular="0.1" color="yellow" animation="property: rotation; to: 0 360 0; loop: true; dur: 5000"
+             gaze-interaction data-original-color="yellow" data-gaze-color="orange"></a-torus>
+
+    <!-- Simple text for context -->
+    <a-text value="MR Gallery Demo" align="center" position="0 2 -2" color="black" scale="1 1 1"></a-text>
+  </a-scene>
+
+  <!-- Custom component for gaze interaction -->
+  <script>
+    AFRAME.registerComponent('gaze-interaction', {
+      init: function () {
+        this.el.addEventListener('mouseenter', () => {
+          const gazeColor = this.el.getAttribute('data-gaze-color');
+          this.el.setAttribute('color', gazeColor);
+        });
+        this.el.addEventListener('mouseleave', () => {
+          const originalColor = this.el.getAttribute('data-original-color');
+          this.el.setAttribute('color', originalColor);
+        });
+      }
+    });
+  </script>
+</body>
+</html>
