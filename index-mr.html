@@ -53,7 +53,7 @@
   </style>
 </head>
 <body>
-  <a-scene id="scene" renderer="alpha: true" background="color: transparent" webxr="requiredFeatures: immersive-ar">
+  <a-scene id="scene" renderer="alpha: true" background="color: transparent">
     <!-- Camera rig for VR navigation -->
     <a-entity id="rig" movement-controls="speed: 0.2">
       <a-entity camera position="0 1.6 0" look-controls></a-entity>
@@ -131,24 +131,19 @@
           // A-Frame AR session
           arButton.addEventListener('click', () => {
             log('Requesting immersive-ar session (A-Frame)...');
-            // A-Frame should automatically handle the session due to webxr="requiredFeatures: immersive-ar"
-            scene.addEventListener('enter-vr', () => {
-              if (scene.is('ar-mode')) {
-                log('Entered AR mode successfully (A-Frame).');
+            navigator.xr.requestSession('immersive-ar').then((session) => {
+              log('immersive-ar session started successfully (A-Frame).');
+              // Let A-Frame handle the session
+              scene.enterVR(session);
+              setTimeout(() => {
+                log('Passthrough should be active now (A-Frame).');
                 arButton.style.display = 'none';
                 rawArButton.style.display = 'none';
-              } else {
-                log('Entered VR mode instead of AR, falling back to VR.');
-                startVRSession();
-              }
+              }, 2000);
+            }).catch((err) => {
+              log('Failed to start AR session (A-Frame): ' + err.message);
+              alert('Failed to start AR mode (A-Frame). Try the Raw WebXR button or use Wolvic browser.');
             });
-            scene.addEventListener('exit-vr', () => {
-              log('Exited immersive mode.');
-              arButton.style.display = 'block';
-              rawArButton.style.display = 'block';
-            });
-            // Trigger A-Frame to enter AR mode
-            scene.enterVR();
           });
 
           // Raw WebXR AR session
@@ -157,10 +152,28 @@
             navigator.xr.requestSession('immersive-ar').then(async (session) => {
               log('immersive-ar session started successfully (Raw WebXR).');
               const canvas = sceneEl.querySelector('canvas');
-              const gl = canvas.getContext('webgl', { xrCompatible: true });
+              if (!canvas) {
+                log('Error: Canvas not found.');
+                return;
+              }
+              // Try webgl2 first, fall back to webgl
+              let gl = canvas.getContext('webgl2', { xrCompatible: true });
+              if (!gl) {
+                log('WebGL2 not supported, trying WebGL...');
+                gl = canvas.getContext('webgl', { xrCompatible: true });
+              }
+              if (!gl) {
+                log('Error: Failed to get WebGL context.');
+                return;
+              }
 
               // Bind the WebXR session to the WebGL context
-              session.updateRenderState({ baseLayer: new XRWebGLLayer(session, gl) });
+              try {
+                session.updateRenderState({ baseLayer: new XRWebGLLayer(session, gl) });
+              } catch (err) {
+                log('Failed to create XRWebGLLayer: ' + err.message);
+                return;
+              }
 
               // Start the session rendering loop
               let animationFrameId;
@@ -170,7 +183,6 @@
                   if (pose) {
                     gl.bindFramebuffer(gl.FRAMEBUFFER, session.renderState.baseLayer.framebuffer);
                     gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
-                    // A-Frame will handle rendering the scene
                     scene.renderer.render(scene.object3D, scene.camera);
                   }
                   animationFrameId = session.requestAnimationFrame(renderLoop);
@@ -186,15 +198,28 @@
               }, 2000);
             }).catch((err) => {
               log('Failed to start AR session (Raw WebXR): ' + err.message);
-              alert('Failed to start AR mode (Raw WebXR). Falling back to VR.');
-              startVRSession();
+              alert('Failed to start AR mode (Raw WebXR). Try using Wolvic browser.');
             });
           });
         } else {
           log('immersive-ar not supported, falling back to VR.');
           arButton.textContent = 'Enter VR Mode';
           rawArButton.style.display = 'none';
-          arButton.addEventListener('click', startVRSession);
+          arButton.addEventListener('click', () => {
+            log('Requesting immersive-vr session...');
+            navigator.xr.requestSession('immersive-vr').then((session) => {
+              log('immersive-vr session started successfully.');
+              scene.enterVR(session);
+              const sky = document.createElement('a-sky');
+              sky.setAttribute('color', '#87CEEB');
+              sceneEl.appendChild(sky);
+              arButton.style.display = 'none';
+              rawArButton.style.display = 'none';
+            }).catch((err) => {
+              log('Failed to start VR session: ' + err.message);
+              alert('Failed to start VR mode.');
+            });
+          });
         }
       }).catch((err) => {
         log('Error checking immersive-ar support: ' + err.message);
@@ -203,22 +228,6 @@
         rawArButton.textContent = 'WebXR Error';
         rawArButton.disabled = true;
       });
-
-      function startVRSession() {
-        log('Requesting immersive-vr session...');
-        navigator.xr.requestSession('immersive-vr').then((session) => {
-          log('immersive-vr session started successfully.');
-          scene.enterVR(session);
-          const sky = document.createElement('a-sky');
-          sky.setAttribute('color', '#87CEEB');
-          sceneEl.appendChild(sky);
-          arButton.style.display = 'none';
-          rawArButton.style.display = 'none';
-        }).catch((err) => {
-          log('Failed to start VR session: ' + err.message);
-          alert('Failed to start VR mode.');
-        });
-      }
     });
   </script>
 </body>
