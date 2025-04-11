@@ -1,16 +1,18 @@
 <!DOCTYPE html>
 <html>
 <head>
-  <title>Mixed Reality Gallery</title>
+  <title>Mixed Reality Gallery (Three.js)</title>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <!-- Verified A-Frame and A-Frame Extras scripts -->
-  <script src="https://aframe.io/releases/1.5.0/aframe.min.js"></script>
-  <script src="https://unpkg.com/aframe-extras@7.5.0/dist/aframe-extras.min.js"></script>
+  <!-- Three.js script -->
+  <script src="https://unpkg.com/three@0.162.0/build/three.min.js"></script>
   <style>
     body {
       margin: 0;
       font-family: Arial, sans-serif;
+    }
+    canvas {
+      display: block;
     }
     #arButton {
       position: fixed;
@@ -18,18 +20,6 @@
       left: 20px;
       padding: 10px 20px;
       background-color: #007bff;
-      color: white;
-      border: none;
-      border-radius: 5px;
-      cursor: pointer;
-      z-index: 1000;
-    }
-    #rawArButton {
-      position: fixed;
-      bottom: 60px;
-      left: 20px;
-      padding: 10px 20px;
-      background-color: #ff4500;
       color: white;
       border: none;
       border-radius: 5px;
@@ -53,30 +43,8 @@
   </style>
 </head>
 <body>
-  <a-scene id="scene" renderer="alpha: true" background="color: transparent">
-    <!-- Camera rig for VR navigation -->
-    <a-entity id="rig" movement-controls="speed: 0.2">
-      <a-entity camera position="0 1.6 0" look-controls></a-entity>
-      <!-- Controllers for Quest 3 -->
-      <a-entity id="left-hand" hand-controls="hand: left"></a-entity>
-      <a-entity id="right-hand" hand-controls="hand: right" teleport-controls="cameraRig: #rig; landingNormal: 0 1 0"></a-entity>
-    </a-entity>
-
-    <!-- 3D Objects with gaze interaction -->
-    <a-box position="-2 1 -3" scale="0.5 0.5 0.5" color="red" animation="property: rotation; to: 0 360 0; loop: true; dur: 5000"
-           gaze-interaction data-original-color="red" data-gaze-color="green"></a-box>
-    <a-sphere position="0 1 -3" radius="0.5" color="blue" animation="property: rotation; to: 0 360 0; loop: true; dur: 5000"
-              gaze-interaction data-original-color="blue" data-gaze-color="purple"></a-sphere>
-    <a-torus position="2 1 -3" radius="0.3" radius-tubular="0.1" color="yellow" animation="property: rotation; to: 0 360 0; loop: true; dur: 5000"
-             gaze-interaction data-original-color="yellow" data-gaze-color="orange"></a-torus>
-
-    <!-- Simple text for context -->
-    <a-text value="MR Gallery Demo" align="center" position="0 2 -2" color="black" scale="1 1 1"></a-text>
-  </a-scene>
-
-  <!-- Buttons to start AR session -->
-  <button id="arButton">Enter AR Mode (A-Frame)</button>
-  <button id="rawArButton">Enter AR Mode (Raw WebXR)</button>
+  <!-- Button to start AR session -->
+  <button id="arButton">Enter AR Mode</button>
 
   <!-- Debug log display -->
   <div id="debugLog"></div>
@@ -90,143 +58,188 @@
       debugLog.scrollTop = debugLog.scrollHeight;
     }
 
-    // Gaze interaction component
-    AFRAME.registerComponent('gaze-interaction', {
-      init: function () {
-        this.el.addEventListener('mouseenter', () => {
-          const gazeColor = this.el.getAttribute('data-gaze-color');
-          this.el.setAttribute('color', gazeColor);
-        });
-        this.el.addEventListener('mouseleave', () => {
-          const originalColor = this.el.getAttribute('data-original-color');
-          this.el.setAttribute('color', originalColor);
-        });
-      }
+    // Three.js scene setup
+    const scene = new THREE.Scene();
+    const camera = new THREE.PerspectiveCamera(70, window.innerWidth / window.innerHeight, 0.1, 1000);
+    camera.position.set(0, 1.6, 0); // Eye height for VR
+
+    const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
+    renderer.setPixelRatio(window.devicePixelRatio);
+    renderer.setSize(window.innerWidth, window.innerHeight);
+    renderer.xr.enabled = true;
+    document.body.appendChild(renderer.domElement);
+
+    // Set transparent background for passthrough
+    renderer.setClearColor(0x000000, 0);
+
+    // Resize handler
+    window.addEventListener('resize', () => {
+      camera.aspect = window.innerWidth / window.innerHeight;
+      camera.updateProjectionMatrix();
+      renderer.setSize(window.innerWidth, window.innerHeight);
     });
 
-    // Manual AR session handling
+    // Add objects
+    const cubeGeometry = new THREE.BoxGeometry(0.5, 0.5, 0.5);
+    const cubeMaterial = new THREE.MeshBasicMaterial({ color: 0xff0000 });
+    const cube = new THREE.Mesh(cubeGeometry, cubeMaterial);
+    cube.position.set(-2, 1, -3);
+    cube.userData = { originalColor: 0xff0000, gazeColor: 0x00ff00 };
+    scene.add(cube);
+
+    const sphereGeometry = new THREE.SphereGeometry(0.5, 32, 32);
+    const sphereMaterial = new THREE.MeshBasicMaterial({ color: 0x0000ff });
+    const sphere = new THREE.Mesh(sphereGeometry, sphereMaterial);
+    sphere.position.set(0, 1, -3);
+    sphere.userData = { originalColor: 0x0000ff, gazeColor: 0x800080 };
+    scene.add(sphere);
+
+    const torusGeometry = new THREE.TorusGeometry(0.3, 0.1, 16, 100);
+    const torusMaterial = new THREE.MeshBasicMaterial({ color: 0xffff00 });
+    const torus = new THREE.Mesh(torusGeometry, torusMaterial);
+    torus.position.set(2, 1, -3);
+    torus.userData = { originalColor: 0xffff00, gazeColor: 0xffa500 };
+    scene.add(torus);
+
+    // Add rotation animations
+    function animateObjects() {
+      cube.rotation.y += 0.02;
+      sphere.rotation.y += 0.02;
+      torus.rotation.y += 0.02;
+    }
+
+    // Add text (using Three.js TextGeometry)
+    const fontLoader = new THREE.FontLoader();
+    fontLoader.load('https://unpkg.com/three@0.162.0/examples/fonts/helvetiker_regular.typeface.json', (font) => {
+      const textGeometry = new THREE.TextGeometry('MR Gallery Demo', {
+        font: font,
+        size: 0.5,
+        height: 0.1,
+      });
+      const textMaterial = new THREE.MeshBasicMaterial({ color: 0x000000 });
+      const textMesh = new THREE.Mesh(textGeometry, textMaterial);
+      textMesh.position.set(-1.5, 2, -2);
+      scene.add(textMesh);
+    });
+
+    // Gaze interaction using raycasting
+    const raycaster = new THREE.Raycaster();
+    const direction = new THREE.Vector3(0, 0, -1); // Forward direction
+    let lastIntersected = null;
+
+    function handleGaze() {
+      // Update raycaster from camera
+      raycaster.setFromCamera({ x: 0, y: 0 }, camera);
+      const intersects = raycaster.intersectObjects([cube, sphere, torus]);
+
+      if (intersects.length > 0) {
+        const intersected = intersects[0].object;
+        if (intersected !== lastIntersected) {
+          if (lastIntersected) {
+            lastIntersected.material.color.setHex(lastIntersected.userData.originalColor);
+          }
+          intersected.material.color.setHex(intersected.userData.gazeColor);
+          lastIntersected = intersected;
+        }
+      } else {
+        if (lastIntersected) {
+          lastIntersected.material.color.setHex(lastIntersected.userData.originalColor);
+          lastIntersected = null;
+        }
+      }
+    }
+
+    // WebXR controller for teleportation
+    const controller = renderer.xr.getController(1); // Right controller
+    scene.add(controller);
+
+    const teleportTarget = new THREE.Mesh(
+      new THREE.CircleGeometry(0.3, 32),
+      new THREE.MeshBasicMaterial({ color: 0x00ff00, transparent: true, opacity: 0.5 })
+    );
+    teleportTarget.rotation.x = -Math.PI / 2;
+    teleportTarget.visible = false;
+    scene.add(teleportTarget);
+
+    let isSelecting = false;
+    controller.addEventListener('selectstart', () => {
+      isSelecting = true;
+    });
+    controller.addEventListener('selectend', () => {
+      if (teleportTarget.visible) {
+        const cameraGroup = renderer.xr.getCamera(camera).parent;
+        cameraGroup.position.set(teleportTarget.position.x, 0, teleportTarget.position.z);
+      }
+      isSelecting = false;
+      teleportTarget.visible = false;
+    });
+
+    function handleTeleport() {
+      if (!isSelecting) return;
+
+      const controllerPose = renderer.xr.getController(1);
+      const raycaster = new THREE.Raycaster();
+      raycaster.set(controllerPose.position, controllerPose.getWorldDirection(new THREE.Vector3()));
+      const intersects = raycaster.intersectObject(new THREE.Mesh(new THREE.PlaneGeometry(100, 100), new THREE.MeshBasicMaterial()), true);
+
+      if (intersects.length > 0) {
+        teleportTarget.position.copy(intersects[0].point);
+        teleportTarget.visible = true;
+      } else {
+        teleportTarget.visible = false;
+      }
+    }
+
+    // Animation loop
+    function animate() {
+      renderer.setAnimationLoop((time, frame) => {
+        animateObjects();
+        handleGaze();
+        handleTeleport();
+        renderer.render(scene, camera);
+      });
+    }
+
+    // Start AR session
     document.addEventListener('DOMContentLoaded', () => {
       const arButton = document.getElementById('arButton');
-      const rawArButton = document.getElementById('rawArButton');
-      const sceneEl = document.getElementById('scene');
-      const scene = sceneEl.sceneEl; // A-Frame scene object
 
       log('Checking WebXR support...');
       if (!navigator.xr) {
         log('WebXR not supported in this browser.');
         arButton.textContent = 'WebXR Not Supported';
         arButton.disabled = true;
-        rawArButton.textContent = 'WebXR Not Supported';
-        rawArButton.disabled = true;
         return;
       }
 
-      // Check if immersive-ar is supported
       navigator.xr.isSessionSupported('immersive-ar').then((supported) => {
         if (supported) {
           log('immersive-ar is supported.');
           arButton.style.display = 'block';
-          rawArButton.style.display = 'block';
-
-          // A-Frame AR session
           arButton.addEventListener('click', () => {
-            log('Requesting immersive-ar session (A-Frame)...');
-            navigator.xr.requestSession('immersive-ar').then((session) => {
-              log('immersive-ar session started successfully (A-Frame).');
-              // Let A-Frame handle the session
-              scene.enterVR(session);
-              setTimeout(() => {
-                log('Passthrough should be active now (A-Frame).');
-                arButton.style.display = 'none';
-                rawArButton.style.display = 'none';
-              }, 2000);
-            }).catch((err) => {
-              log('Failed to start AR session (A-Frame): ' + err.message);
-              alert('Failed to start AR mode (A-Frame). Try the Raw WebXR button or use Wolvic browser.');
-            });
-          });
-
-          // Raw WebXR AR session
-          rawArButton.addEventListener('click', () => {
-            log('Requesting immersive-ar session (Raw WebXR)...');
+            log('Requesting immersive-ar session...');
             navigator.xr.requestSession('immersive-ar').then(async (session) => {
-              log('immersive-ar session started successfully (Raw WebXR).');
-              const canvas = sceneEl.querySelector('canvas');
-              if (!canvas) {
-                log('Error: Canvas not found.');
-                return;
-              }
-              // Try webgl2 first, fall back to webgl
-              let gl = canvas.getContext('webgl2', { xrCompatible: true });
-              if (!gl) {
-                log('WebGL2 not supported, trying WebGL...');
-                gl = canvas.getContext('webgl', { xrCompatible: true });
-              }
-              if (!gl) {
-                log('Error: Failed to get WebGL context.');
-                return;
-              }
-
-              // Bind the WebXR session to the WebGL context
-              try {
-                session.updateRenderState({ baseLayer: new XRWebGLLayer(session, gl) });
-              } catch (err) {
-                log('Failed to create XRWebGLLayer: ' + err.message);
-                return;
-              }
-
-              // Start the session rendering loop
-              let animationFrameId;
-              const renderLoop = () => {
-                session.requestAnimationFrame((time, frame) => {
-                  const pose = frame.getViewerPose(frame.getSession().renderState.baseSpace);
-                  if (pose) {
-                    gl.bindFramebuffer(gl.FRAMEBUFFER, session.renderState.baseLayer.framebuffer);
-                    gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
-                    scene.renderer.render(scene.object3D, scene.camera);
-                  }
-                  animationFrameId = session.requestAnimationFrame(renderLoop);
-                });
-              };
-              renderLoop();
-
-              // Hide buttons
+              log('immersive-ar session started successfully.');
+              renderer.xr.setSession(session);
               setTimeout(() => {
-                log('Passthrough should be active now (Raw WebXR).');
+                log('Passthrough should be active now.');
                 arButton.style.display = 'none';
-                rawArButton.style.display = 'none';
               }, 2000);
+              animate();
             }).catch((err) => {
-              log('Failed to start AR session (Raw WebXR): ' + err.message);
-              alert('Failed to start AR mode (Raw WebXR). Try using Wolvic browser.');
+              log('Failed to start AR session: ' + err.message);
+              alert('Failed to start AR mode. Ensure passthrough is enabled and try again in Wolvic browser.');
             });
           });
         } else {
-          log('immersive-ar not supported, falling back to VR.');
-          arButton.textContent = 'Enter VR Mode';
-          rawArButton.style.display = 'none';
-          arButton.addEventListener('click', () => {
-            log('Requesting immersive-vr session...');
-            navigator.xr.requestSession('immersive-vr').then((session) => {
-              log('immersive-vr session started successfully.');
-              scene.enterVR(session);
-              const sky = document.createElement('a-sky');
-              sky.setAttribute('color', '#87CEEB');
-              sceneEl.appendChild(sky);
-              arButton.style.display = 'none';
-              rawArButton.style.display = 'none';
-            }).catch((err) => {
-              log('Failed to start VR session: ' + err.message);
-              alert('Failed to start VR mode.');
-            });
-          });
+          log('immersive-ar not supported.');
+          arButton.textContent = 'AR Not Supported';
+          arButton.disabled = true;
         }
       }).catch((err) => {
         log('Error checking immersive-ar support: ' + err.message);
         arButton.textContent = 'WebXR Error';
         arButton.disabled = true;
-        rawArButton.textContent = 'WebXR Error';
-        rawArButton.disabled = true;
       });
     });
   </script>
