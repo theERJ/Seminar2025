@@ -15,7 +15,7 @@
     #arButton {
       position: fixed;
       bottom: 20px;
-      right: 20px;
+      left: 20px;
       padding: 10px 20px;
       background-color: #007bff;
       color: white;
@@ -23,6 +23,20 @@
       border-radius: 5px;
       cursor: pointer;
       z-index: 1000;
+    }
+    #debugLog {
+      position: fixed;
+      top: 20px;
+      left: 20px;
+      background-color: rgba(0, 0, 0, 0.8);
+      color: white;
+      padding: 10px;
+      max-width: 50%;
+      max-height: 50%;
+      overflow-y: auto;
+      z-index: 1000;
+      font-family: monospace;
+      font-size: 14px;
     }
   </style>
 </head>
@@ -51,8 +65,18 @@
   <!-- Button to manually start AR session -->
   <button id="arButton">Enter AR Mode</button>
 
+  <!-- Debug log display -->
+  <div id="debugLog"></div>
+
   <!-- Custom scripts -->
   <script>
+    // Debug logging function
+    const debugLog = document.getElementById('debugLog');
+    function log(message) {
+      debugLog.innerHTML += message + '<br>';
+      debugLog.scrollTop = debugLog.scrollHeight;
+    }
+
     // Gaze interaction component
     AFRAME.registerComponent('gaze-interaction', {
       init: function () {
@@ -72,35 +96,46 @@
       const arButton = document.getElementById('arButton');
       const scene = document.getElementById('scene');
 
-      // Check if immersive-ar is supported
-      if (navigator.xr) {
-        navigator.xr.isSessionSupported('immersive-ar').then((supported) => {
-          if (supported) {
-            arButton.style.display = 'block';
-            arButton.addEventListener('click', () => {
-              navigator.xr.requestSession('immersive-ar').then((session) => {
-                scene.setAttribute('xr-session', session);
-                arButton.style.display = 'none'; // Hide button after entering AR
-              }).catch((err) => {
-                console.error('Failed to start AR session:', err);
-                alert('Failed to start AR mode. Falling back to VR.');
-                startVRSession();
-              });
-            });
-          } else {
-            console.log('immersive-ar not supported, falling back to VR');
-            arButton.textContent = 'Enter VR Mode';
-            arButton.addEventListener('click', startVRSession);
-          }
-        });
-      } else {
-        console.log('WebXR not supported in this browser');
+      log('Checking WebXR support...');
+      if (!navigator.xr) {
+        log('WebXR not supported in this browser.');
         arButton.textContent = 'WebXR Not Supported';
         arButton.disabled = true;
+        return;
       }
 
+      // Check if immersive-ar is supported
+      navigator.xr.isSessionSupported('immersive-ar').then((supported) => {
+        if (supported) {
+          log('immersive-ar is supported.');
+          arButton.style.display = 'block';
+          arButton.addEventListener('click', () => {
+            log('Requesting immersive-ar session...');
+            navigator.xr.requestSession('immersive-ar').then((session) => {
+              log('immersive-ar session started successfully.');
+              scene.setAttribute('xr-session', session);
+              arButton.style.display = 'none'; // Hide button after entering AR
+            }).catch((err) => {
+              log('Failed to start AR session: ' + err.message);
+              alert('Failed to start AR mode. Falling back to VR.');
+              startVRSession();
+            });
+          });
+        } else {
+          log('immersive-ar not supported, falling back to VR.');
+          arButton.textContent = 'Enter VR Mode';
+          arButton.addEventListener('click', startVRSession);
+        }
+      }).catch((err) => {
+        log('Error checking immersive-ar support: ' + err.message);
+        arButton.textContent = 'WebXR Error';
+        arButton.disabled = true;
+      });
+
       function startVRSession() {
+        log('Requesting immersive-vr session...');
         navigator.xr.requestSession('immersive-vr').then((session) => {
+          log('immersive-vr session started successfully.');
           scene.setAttribute('xr-session', session);
           // Add a sky for VR mode since passthrough won't work
           const sky = document.createElement('a-sky');
@@ -108,7 +143,7 @@
           scene.appendChild(sky);
           arButton.style.display = 'none';
         }).catch((err) => {
-          console.error('Failed to start VR session:', err);
+          log('Failed to start VR session: ' + err.message);
           alert('Failed to start VR mode.');
         });
       }
